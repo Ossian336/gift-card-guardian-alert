@@ -112,7 +112,7 @@ const GiftCardTable = ({ giftCards, onEdit, onDelete }: GiftCardTableProps) => {
                   <TableCell className="text-green-600 font-semibold">
                     ${card.balance.toFixed(2)}
                   </TableCell>
-                  <TableCell>{new Date(card.expirationDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(card.expiration_date).toLocaleDateString()}</TableCell>
                   <TableCell>{getExpirationBadge(card.daysUntilExpiration)}</TableCell>
                   <TableCell className="max-w-[200px] truncate">
                     {card.notes || "—"}

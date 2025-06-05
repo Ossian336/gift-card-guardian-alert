@@ -24,7 +24,7 @@ const GiftCardForm = ({ card, onSubmit, onCancel }: GiftCardFormProps) => {
     if (card) {
       setBrand(card.brand);
       setBalance(card.balance.toString());
-      setExpirationDate(card.expirationDate);
+      setExpirationDate(card.expiration_date);
       setNotes(card.notes || "");
     }
   }, [card]);
@@ -37,7 +37,7 @@ const GiftCardForm = ({ card, onSubmit, onCancel }: GiftCardFormProps) => {
     onSubmit({
       brand,
       balance: parseFloat(balance),
-      expirationDate,
+      expiration_date: expirationDate,
       notes
     });
   };

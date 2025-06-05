@@ -1,7 +1,9 @@
 
 import { useState, useEffect } from "react";
+import { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Gift, LogOut, Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import GiftCardForm from "./GiftCardForm";
 import GiftCardTable from "./GiftCardTable";
 import GiftCardChart from "./GiftCardChart";
@@ -11,13 +13,13 @@ export interface GiftCard {
   id: string;
   brand: string;
   balance: number;
-  expirationDate: string;
+  expiration_date: string;
   notes?: string;
   daysUntilExpiration: number;
 }
 
 interface DashboardProps {
-  user: { email: string } | null;
+  user: User;
   onLogout: () => void;
 }
 
@@ -25,45 +27,50 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
   const [giftCards, setGiftCards] = useState<GiftCard[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Sample data
-  useEffect(() => {
-    const sampleCards: GiftCard[] = [
-      {
-        id: "1",
-        brand: "Amazon",
-        balance: 150.00,
-        expirationDate: "2024-12-31",
-        notes: "Birthday gift from mom",
-        daysUntilExpiration: 0
-      },
-      {
-        id: "2",
-        brand: "Starbucks",
-        balance: 25.50,
-        expirationDate: "2024-08-15",
-        notes: "From office gift exchange",
-        daysUntilExpiration: 0
-      },
-      {
-        id: "3",
-        brand: "Target",
-        balance: 100.00,
-        expirationDate: "2025-01-15",
-        notes: "",
-        daysUntilExpiration: 0
+  const fetchGiftCards = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("table 1 test")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error fetching gift cards:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch gift cards",
+          variant: "destructive",
+        });
+        return;
       }
-    ];
 
-    // Calculate days until expiration
-    const cardsWithExpiration = sampleCards.map(card => ({
-      ...card,
-      daysUntilExpiration: Math.ceil((new Date(card.expirationDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
-    }));
+      // Calculate days until expiration and format data
+      const cardsWithExpiration = (data || []).map((card: any) => ({
+        id: card.id,
+        brand: card.brand || "",
+        balance: parseFloat(card.balance) || 0,
+        expiration_date: card.expiration_date || "",
+        notes: card.notes || "",
+        daysUntilExpiration: card.expiration_date 
+          ? Math.ceil((new Date(card.expiration_date).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
+          : 0
+      }));
 
-    setGiftCards(cardsWithExpiration);
-  }, []);
+      setGiftCards(cardsWithExpiration);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGiftCards();
+  }, [user.id]);
 
   // Check for expiring cards
   useEffect(() => {
@@ -80,46 +87,114 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
     });
   }, [giftCards, toast]);
 
-  const handleAddCard = (cardData: Omit<GiftCard, "id" | "daysUntilExpiration">) => {
-    const newCard: GiftCard = {
-      ...cardData,
-      id: Date.now().toString(),
-      daysUntilExpiration: Math.ceil((new Date(cardData.expirationDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
-    };
-    setGiftCards([...giftCards, newCard]);
-    setShowForm(false);
-    toast({
-      title: "Gift Card Added",
-      description: `${cardData.brand} gift card has been added successfully`,
-    });
+  const handleAddCard = async (cardData: Omit<GiftCard, "id" | "daysUntilExpiration">) => {
+    try {
+      const { error } = await supabase
+        .from("table 1 test")
+        .insert({
+          user_id: user.id,
+          brand: cardData.brand,
+          balance: cardData.balance,
+          expiration_date: cardData.expiration_date,
+          notes: cardData.notes,
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error("Error adding gift card:", error);
+        toast({
+          title: "Error",
+          description: "Failed to add gift card",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setShowForm(false);
+      fetchGiftCards();
+      toast({
+        title: "Gift Card Added",
+        description: `${cardData.brand} gift card has been added successfully`,
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
   };
 
-  const handleEditCard = (cardData: Omit<GiftCard, "id" | "daysUntilExpiration">) => {
-    if (editingCard) {
-      const updatedCard: GiftCard = {
-        ...cardData,
-        id: editingCard.id,
-        daysUntilExpiration: Math.ceil((new Date(cardData.expirationDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24))
-      };
-      setGiftCards(giftCards.map(card => card.id === editingCard.id ? updatedCard : card));
+  const handleEditCard = async (cardData: Omit<GiftCard, "id" | "daysUntilExpiration">) => {
+    if (!editingCard) return;
+
+    try {
+      const { error } = await supabase
+        .from("table 1 test")
+        .update({
+          brand: cardData.brand,
+          balance: cardData.balance,
+          expiration_date: cardData.expiration_date,
+          notes: cardData.notes,
+        })
+        .eq("id", editingCard.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error updating gift card:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update gift card",
+          variant: "destructive",
+        });
+        return;
+      }
+
       setEditingCard(null);
       setShowForm(false);
+      fetchGiftCards();
       toast({
         title: "Gift Card Updated",
         description: `${cardData.brand} gift card has been updated successfully`,
       });
+    } catch (error) {
+      console.error("Error:", error);
     }
   };
 
-  const handleDeleteCard = (id: string) => {
-    setGiftCards(giftCards.filter(card => card.id !== id));
-    toast({
-      title: "Gift Card Deleted",
-      description: "Gift card has been removed successfully",
-    });
+  const handleDeleteCard = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("table 1 test")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error deleting gift card:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete gift card",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      fetchGiftCards();
+      toast({
+        title: "Gift Card Deleted",
+        description: "Gift card has been removed successfully",
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
   };
 
   const totalBalance = giftCards.reduce((sum, card) => sum + card.balance, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+        <div className="text-lg">Loading your gift cards...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
@@ -136,7 +211,7 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user?.email}</span>
+              <span className="text-sm text-gray-600">Welcome, {user.email}</span>
               <Button variant="outline" size="sm" onClick={onLogout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout

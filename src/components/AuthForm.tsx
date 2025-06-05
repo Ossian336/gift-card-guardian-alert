@@ -7,18 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-interface AuthFormProps {
-  onLogin: (email: string) => void;
-}
-
-const AuthForm = ({ onLogin }: AuthFormProps) => {
+const AuthForm = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent, isSignUp: boolean) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       toast({
@@ -30,15 +27,59 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
     }
 
     setIsLoading(true);
-    // Simulate authentication
-    setTimeout(() => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
       toast({
-        title: isSignUp ? "Account Created!" : "Welcome Back!",
-        description: isSignUp ? "Your account has been created successfully." : "You've been logged in successfully.",
+        title: "Login Failed",
+        description: error.message,
+        variant: "destructive",
       });
-      onLogin(email);
-      setIsLoading(false);
-    }, 1000);
+    } else {
+      toast({
+        title: "Welcome Back!",
+        description: "You've been logged in successfully.",
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+
+    if (error) {
+      toast({
+        title: "Sign Up Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Account Created!",
+        description: "Please check your email to confirm your account.",
+      });
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -64,7 +105,7 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
             <TabsContent value="login">
-              <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -97,7 +138,7 @@ const AuthForm = ({ onLogin }: AuthFormProps) => {
               </form>
             </TabsContent>
             <TabsContent value="signup">
-              <form onSubmit={(e) => handleSubmit(e, true)} className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
                   <Input
