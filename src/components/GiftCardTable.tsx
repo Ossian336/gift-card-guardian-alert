@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Search, Filter, Download } from "lucide-react";
 import { GiftCard } from "./Dashboard";
+import { exportToCSV, generateCSVFilename } from "@/utils/csvExport";
 
 interface GiftCardTableProps {
   giftCards: GiftCard[];
@@ -47,13 +48,29 @@ const GiftCardTable = ({ giftCards, onEdit, onDelete }: GiftCardTableProps) => {
     }
   };
 
+  const handleExportCSV = () => {
+    const filename = generateCSVFilename();
+    exportToCSV(giftCards, filename);
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Filter className="w-5 h-5" />
-          <span>Gift Cards</span>
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="w-5 h-5" />
+            <span>Gift Cards</span>
+          </CardTitle>
+          <Button
+            onClick={handleExportCSV}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>Export Gift Cards CSV</span>
+          </Button>
+        </div>
         
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
