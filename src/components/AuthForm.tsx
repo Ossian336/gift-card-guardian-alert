@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Gift } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/utils/secureLogging";
+import { rateLimiter } from "@/utils/validation";
 
 const AuthForm = () => {
   const [email, setEmail] = useState("");
@@ -17,10 +18,32 @@ const AuthForm = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Rate limiting check
+    if (!rateLimiter.isAllowed('auth-login', 5, 300000)) { // 5 attempts per 5 minutes
+      toast({
+        title: "Too Many Attempts",
+        description: "Please wait 5 minutes before trying again",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!email || !password) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -33,12 +56,19 @@ const AuthForm = () => {
     });
 
     if (error) {
+      logger.warn("Login attempt failed", { 
+        email: email.split('@')[0] + '@[REDACTED]',
+        error: error.message 
+      });
       toast({
         title: "Login Failed",
         description: error.message,
         variant: "destructive",
       });
     } else {
+      logger.info("User logged in successfully", { 
+        email: email.split('@')[0] + '@[REDACTED]' 
+      });
       toast({
         title: "Welcome Back!",
         description: "You've been logged in successfully.",
@@ -49,10 +79,42 @@ const AuthForm = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Rate limiting check
+    if (!rateLimiter.isAllowed('auth-signup', 3, 300000)) { // 3 attempts per 5 minutes
+      toast({
+        title: "Too Many Attempts",
+        description: "Please wait 5 minutes before trying again",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!email || !password) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Password strength validation
+    if (password.length < 8) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 8 characters long",
         variant: "destructive",
       });
       return;
@@ -68,12 +130,19 @@ const AuthForm = () => {
     });
 
     if (error) {
+      logger.warn("Sign up attempt failed", { 
+        email: email.split('@')[0] + '@[REDACTED]',
+        error: error.message 
+      });
       toast({
         title: "Sign Up Failed",
         description: error.message,
         variant: "destructive",
       });
     } else {
+      logger.info("User signed up successfully", { 
+        email: email.split('@')[0] + '@[REDACTED]' 
+      });
       toast({
         title: "Account Created!",
         description: "Please check your email to confirm your account.",
@@ -113,7 +182,8 @@ const AuthForm = () => {
                     type="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.trim())}
+                    maxLength={254}
                     required
                   />
                 </div>
@@ -125,6 +195,8 @@ const AuthForm = () => {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={128}
                     required
                   />
                 </div>
@@ -146,7 +218,8 @@ const AuthForm = () => {
                     type="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.trim())}
+                    maxLength={254}
                     required
                   />
                 </div>
@@ -155,9 +228,11 @@ const AuthForm = () => {
                   <Input
                     id="signup-password"
                     type="password"
-                    placeholder="Create a password"
+                    placeholder="Create a password (min 8 characters)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    minLength={8}
+                    maxLength={128}
                     required
                   />
                 </div>

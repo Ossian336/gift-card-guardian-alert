@@ -8,6 +8,8 @@ import GiftCardForm from "./GiftCardForm";
 import GiftCardTable from "./GiftCardTable";
 import GiftCardChart from "./GiftCardChart";
 import { useToast } from "@/hooks/use-toast";
+import { logger } from "@/utils/secureLogging";
+import { rateLimiter } from "@/utils/validation";
 
 export interface GiftCard {
   id: string;
@@ -31,6 +33,16 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
   const { toast } = useToast();
 
   const fetchGiftCards = async () => {
+    // Rate limiting check
+    if (!rateLimiter.isAllowed(`fetch-cards-${user.id}`, 10, 60000)) {
+      toast({
+        title: "Too Many Requests",
+        description: "Please wait before refreshing data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -39,7 +51,7 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         .eq("user_id", user.id);
 
       if (error) {
-        console.error("Error fetching gift cards:", error);
+        logger.error("Error fetching gift cards", { error: error.message, userId: user.id });
         toast({
           title: "Error",
           description: "Failed to fetch gift cards",
@@ -61,8 +73,9 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
       }));
 
       setGiftCards(cardsWithExpiration);
+      logger.info("Gift cards fetched successfully", { count: cardsWithExpiration.length });
     } catch (error) {
-      console.error("Error:", error);
+      logger.error("Unexpected error fetching gift cards", { error });
     } finally {
       setLoading(false);
     }
@@ -101,7 +114,7 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         });
 
       if (error) {
-        console.error("Error adding gift card:", error);
+        logger.error("Error adding gift card", { error: error.message, userId: user.id });
         toast({
           title: "Error",
           description: "Failed to add gift card",
@@ -116,8 +129,9 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         title: "Gift Card Added",
         description: `${cardData.brand} gift card has been added successfully`,
       });
+      logger.info("Gift card added successfully", { brand: cardData.brand });
     } catch (error) {
-      console.error("Error:", error);
+      logger.error("Unexpected error adding gift card", { error });
     }
   };
 
@@ -137,7 +151,7 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         .eq("user_id", user.id);
 
       if (error) {
-        console.error("Error updating gift card:", error);
+        logger.error("Error updating gift card", { error: error.message, cardId: editingCard.id });
         toast({
           title: "Error",
           description: "Failed to update gift card",
@@ -153,8 +167,9 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         title: "Gift Card Updated",
         description: `${cardData.brand} gift card has been updated successfully`,
       });
+      logger.info("Gift card updated successfully", { cardId: editingCard.id, brand: cardData.brand });
     } catch (error) {
-      console.error("Error:", error);
+      logger.error("Unexpected error updating gift card", { error });
     }
   };
 
@@ -167,7 +182,7 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         .eq("user_id", user.id);
 
       if (error) {
-        console.error("Error deleting gift card:", error);
+        logger.error("Error deleting gift card", { error: error.message, cardId: id });
         toast({
           title: "Error",
           description: "Failed to delete gift card",
@@ -181,8 +196,9 @@ const Dashboard = ({ user, onLogout }: DashboardProps) => {
         title: "Gift Card Deleted",
         description: "Gift card has been removed successfully",
       });
+      logger.info("Gift card deleted successfully", { cardId: id });
     } catch (error) {
-      console.error("Error:", error);
+      logger.error("Unexpected error deleting gift card", { error });
     }
   };
 
